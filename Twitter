@@ -1,0 +1,82 @@
+import tweepy
+import pandas as pd
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import matplotlib.pyplot as plt
+import seaborn as sns
+import re
+
+# Configuração da API do Twitter
+consumer_key = "SUA_CONSUMER_KEY"
+consumer_secret = "SUA_CONSUMER_SECRET"
+access_token = "SEU_ACCESS_TOKEN"
+access_token_secret = "SEU_ACCESS_TOKEN_SECRET"
+
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+auth.set_access_token(access_token, access_token_secret)
+api = tweepy.API(auth, wait_on_rate_limit=True)
+
+# Coleta de Tweets
+query = "Python"  # Palavra-chave ou hashtag de interesse
+tweets = tweepy.Cursor(api.search_tweets, q=query, lang="en", tweet_mode="extended").items(100) #Coleta 100 tweets.
+
+data = []
+for tweet in tweets:
+    data.append([tweet.id, tweet.full_text, tweet.created_at, tweet.retweet_count, tweet.favorite_count])
+
+df = pd.DataFrame(data, columns=['ID', 'Texto', 'Data', 'Retweets', 'Likes'])
+
+# Limpeza e Pré-processamento
+def clean_text(text):
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'@\S+', '', text)
+    text = re.sub(r'#\S+', '', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    text = text.lower()
+    return text
+
+df['Texto Limpo'] = df['Texto'].apply(clean_text)
+
+# Análise de Sentimentos
+nltk.download('vader_lexicon')
+analyzer = SentimentIntensityAnalyzer()
+
+def get_sentiment(text):
+    scores = analyzer.polarity_scores(text)
+    compound = scores['compound']
+    if compound >= 0.05:
+        return 'Positivo'
+    elif compound <= -0.05:
+        return 'Negativo'
+    else:
+        return 'Neutro'
+
+df['Sentimento'] = df['Texto Limpo'].apply(get_sentiment)
+
+# Análise Exploratória de Dados (EDA)
+sentiment_counts = df['Sentimento'].value_counts()
+plt.figure(figsize=(8, 6))
+sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values)
+plt.title('Distribuição de Sentimentos dos Tweets')
+plt.xlabel('Sentimento')
+plt.ylabel('Contagem')
+plt.show()
+
+# Palavras mais comuns por sentimento
+from collections import Counter
+def get_top_words(df, sentiment, n=10):
+    words = ' '.join(df[df['Sentimento'] == sentiment]['Texto Limpo']).split()
+    return Counter(words).most_common(n)
+
+print("Palavras mais comuns em tweets positivos:", get_top_words(df, 'Positivo'))
+print("Palavras mais comuns em tweets negativos:", get_top_words(df, 'Negativo'))
+print("Palavras mais comuns em tweets neutros:", get_top_words(df, 'Neutro'))
+
+# Relação entre sentimento e likes/retweets
+sns.boxplot(x='Sentimento', y='Retweets', data=df)
+plt.title('Retweets por Sentimento')
+plt.show()
+
+sns.boxplot(x='Sentimento', y='Likes', data=df)
+plt.title('Likes por Sentimento')
+plt.show()
