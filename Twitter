@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import re
 
-# Configuração da API do Twitter
+
 consumer_key = "SUA_CONSUMER_KEY"
 consumer_secret = "SUA_CONSUMER_SECRET"
 access_token = "SEU_ACCESS_TOKEN"
